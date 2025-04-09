@@ -1,4 +1,5 @@
 #include "simpletools.h"
+#include "servo.h"
 
 // determines how long to wait before deciding
 // whether the surface is white or black
@@ -15,7 +16,7 @@ int detect_surface_color() {
   set_outputs(14, 13, 0b11);
   set_directions(14, 13, 0b11);
   waitcnt(CNT + dtqti);
-
+ 
   // set pin 13 and 14 low and wait
   set_directions(14, 13, 0b00);
   waitcnt(CNT + dtqti);
@@ -35,6 +36,20 @@ int detect_surface_color() {
   return qtis;
 }
 
+void debug_qti_sensors() {
+  high(13);
+  pause(1);
+  int left = rc_time(13, 1);
+  
+  high(14);
+  pause(1);
+  int right = rc_time(14, 1);
+
+  // black should be in the thousands (or high like that)
+  // white should be < 100 or something
+  print("Left sensor: %d | Right sensor: %d\n", left, right);
+}
+
 typedef enum { FORWARDS, BACKWARDS, TURN_LEFT, TURN_RIGHT } MoveStates;
 
 void move(MoveStates state) {
@@ -51,33 +66,37 @@ void move(MoveStates state) {
   servo_speed(27, b);
 }
 
-int main() {
-  // TODO: test, test, test!! -- this is the tutorial code, but does it actually work??
-  while (1) {
-    int value = detect_surface_color();
+// This might actually be working...
+void move_robot_inside_ring() {
+  int value = detect_surface_color();
 
-    switch (value) {
-      case 0b11: // left & right see black
-        move(TURN_LEFT);
-        break;
-      case 0b10: // left sees black, right sees white
-        move(TURN_RIGHT);
-        pause(600);
-        move(BACKWARDS);
-        pause(600);
-        break;
-      case 0b01: // left sees white, right sees black
-        move(TURN_RIGHT);
-        pause(600);
-        move(FORWARDS);
-        pause(600);
-        break;
-      case 0b00: // left & right see white
-        move(TURN_RIGHT);
-        pause(600);
-        move(FORWARDS);
-        pause(600);
-        break;
-    }
+  switch (value) {
+    case 0b11: // left & right see black
+      move(TURN_LEFT);
+      break;
+    case 0b10: // left sees black, right sees white
+      move(TURN_RIGHT);
+      pause(600);
+      move(BACKWARDS);
+      pause(600);
+      break;
+    case 0b01: // left sees white, right sees black
+      move(TURN_RIGHT);
+      pause(600);
+      move(FORWARDS);
+      pause(600);
+      break;
+   case 0b00: // left & right see white
+      move(TURN_RIGHT);
+      pause(600);
+      move(BACKWARDS);
+      pause(600);
+      break;
+  }
+}  
+
+int main() {
+  while (1) {
+    move_robot_inside_ring();
   }
 }
