@@ -1,5 +1,6 @@
 #include "simpletools.h"
-#include "servo.h"
+#include "servo.h".
+#include "abvolts.h"
 
 // determines how long to wait before deciding
 // whether the surface is white or black
@@ -47,8 +48,42 @@ void debug_qti_sensors() {
 
   // black should be in the thousands (or high like that)
   // white should be < 100 or something
-  print("Left sensor: %d | Right sensor: %d\n", left, right);
+  print("Left QTI sensor: %d | Right QTI sensor: %d\n", left, right);
 }
+
+// Use the IR sensors to detect an obstacle in front.
+// Returns a value ranging from 0 to 8, where 0 means the
+// obstacle is very close, and 8 means that the obstacle
+// wasn't detected at all.
+int run_infrared_sensors(int debug) {
+  int left = 0;
+  int right = 0;
+
+  // Accumulate the left and right receiver outputs
+  // The more we iterate, the more the sensors get nearsighted,
+  // so it's seeing closer and closer.
+  for (int i = 0; i <= 140; i += 20) {
+    da_out(0, i);
+    pause(2);
+    // Tally the amount of times the left sensor DID NOT detect something
+    freqout(5, 1, 38000);
+    left += input(1);
+    // Tally the amount of times the right sensor DID NOT detect something
+    freqout(6, 1, 38000);
+    right += input(2);
+  }
+
+  if (debug)
+    print("Left IR sensor: %d | Right IR sensor: %d\n", left, right);
+
+  return left + right;
+}
+
+void navigate()
+{
+  // TODO: need left and right....
+  run_infrared_sensors(0);
+}  
 
 typedef enum { FORWARDS, BACKWARDS, TURN_LEFT, TURN_RIGHT } MoveStates;
 
@@ -93,10 +128,12 @@ void move_robot_inside_ring() {
       pause(600);
       break;
   }
-}  
+}
 
 int main() {
+  pause(1000);
+  da_init(23, 23);
   while (1) {
-    move_robot_inside_ring();
+   navigate(); 
   }
 }
