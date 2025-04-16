@@ -2,6 +2,35 @@
 #include "servo.h".
 #include "abvolts.h"
 
+typedef enum { FORWARD, BACKWARD, LEFT, RIGHT, CENTER } MoveStates;
+
+// At what distance should we respond to the opponent? (far off or super close (what if we're too late??))
+// What happens when the opponent tips the robot forwards?
+//  - The opponent disappears
+//  - We should be doing that to our opponents
+// Scanleft and right for an opponent if we can't see one
+
+void move(MoveStates state) {
+  int a, b; // a is left and b is right
+  
+  // The right wheel needs to move clockwise,
+  // the left has to move counter clockwise
+  if (state == FORWARD) { a = 100; b = -100; }
+  
+  // Opposite of moving forwards
+  if (state == BACKWARD) { a = -100; b = 100; }
+
+  // Turning
+  if (state == LEFT)  { a = 0; b = -100; }
+  if (state == RIGHT) { a = 100; b = 0; }
+
+  // Center the servos
+  if (state == CENTER) a = b = 0;
+
+  servo_speed(26, a);
+  servo_speed(27, b);
+}
+
 // determines how long to wait before deciding
 // whether the surface is white or black
 // below this it's white, above this it's black
@@ -52,10 +81,11 @@ void debug_qti_sensors() {
 }
 
 // Use the IR sensors to detect an obstacle in front.
-// Returns a value ranging from 0 to 8, where 0 means the
+// Writes a value into leftValue and write a value into rightValue
+// The values should range from 0 to 8, where 0 means the
 // obstacle is very close, and 8 means that the obstacle
 // wasn't detected at all.
-int run_infrared_sensors(int debug) {
+void read_infrared_sensors(int* leftValue, int* rightValue) {
   int left = 0;
   int right = 0;
 
@@ -73,35 +103,29 @@ int run_infrared_sensors(int debug) {
     right += input(2);
   }
 
-  if (debug)
-    print("Left IR sensor: %d | Right IR sensor: %d\n", left, right);
-
-  return left + right;
+  *leftValue = left;
+  *rightValue = right;
 }
 
 void navigate()
 {
-  // TODO: need left and right....
-  run_infrared_sensors(0);
-}  
+  int left, right; // ir sensors
+  read_infrared_sensors(&left, &right);
+  print("Left IR sensor: %d | Right IR sensor: %d\n", left, right);
 
-typedef enum { FORWARDS, BACKWARDS, TURN_LEFT, TURN_RIGHT } MoveStates;
-
-void move(MoveStates state) {
-  // a is the left servo, b is the right servo 
-  // positive to turn the servo clockwise, negative to turn counter-clockwise
-
-  int a, b;
-  if (state == FORWARDS)   { a =  100; b =  100; }
-  if (state == BACKWARDS)  { a = -100; b = -100; }
-  if (state == TURN_LEFT)  { a =  100; b = -100; }
-  if (state == TURN_RIGHT) { a = -100; b =  100; }
-
-  servo_speed(26, a);
-  servo_speed(27, b);
+  if (left < 7 && right < 7)
+    move(FORWARD);
+  else if (left < 7 && right >= 7)
+    move(LEFT);
+  else if (left >= 7 && right < 7)
+    move(RIGHT);
+  else
+    move(CENTER);
 }
 
+/*
 // This might actually be working...
+// probably not anymore
 void move_robot_inside_ring() {
   int value = detect_surface_color();
 
@@ -129,11 +153,13 @@ void move_robot_inside_ring() {
       break;
   }
 }
+*/
 
 int main() {
   pause(1000);
   da_init(23, 23);
+  move(CENTER);
   while (1) {
-   navigate(); 
+    navigate(); 
   }
 }
