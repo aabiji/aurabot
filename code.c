@@ -14,6 +14,7 @@
 // - Detect when we're being pushed and try to fight back
 // - Try to tip the other robot so that we throw off their sensors and mess them up
 // - Detect when we're being tipped
+// - If it's drifting, change batteries
 
 typedef enum { FORWARD, BACKWARD, LEFT, RIGHT, CENTER } MoveStates;
 
@@ -32,70 +33,35 @@ void move(MoveStates state) {
   if (state == RIGHT) { a = 100; b = 0; }
 
   // Center the servos
-  // TODO: this should center it -- use a screwdriver to center it
+  // NOTE: the servo should be manually calibrated before hand
   if (state == CENTER) a = b = 0;
 
   servo_speed(26, a);
   servo_speed(27, b);
 }
 
-// determines how long to wait before deciding
-// whether the surface is white or black
-// below this it's white, above this it's black
-const int COLOR_TIME_THRESHOLD = 230;
+// A QTI sensor value below this is treated as white
+// TODO: higher than 460 should be treated as black
+const int WHITE_THRESHOLD = 115;
 
-// detect the surface color using the left and right
-// qti sensors and return the state of both sensors
-int detect_surface_color() {
-  // delay time expressed in clock cycles
-  int dtqti = ((((CLKFREQ) / 1000000)) * COLOR_TIME_THRESHOLD);
-
-  // set pin 13 and 14 high and wait
-  set_outputs(14, 13, 0b11);
-  set_directions(14, 13, 0b11);
-  waitcnt(CNT + dtqti);
- 
-  // set pin 13 and 14 low and wait
-  set_directions(14, 13, 0b00);
-  waitcnt(CNT + dtqti);
-
-  // read pins 13 and 14.
-  // we've now waited at least `COLOR_TIME_THRESHOLD` microseconds
-  // so if the pins are still high (1), it must be taking a long to discharge
-  // which means that the sensor must be detecing black
-  // if the pins low (0), it must have taken less time to discharge,
-  // which means that the sensor must be detecting white
-  int item = (get_states(14, 13));
-
-  // store the pin state for the left sensor in the first bit,
-  // store the pin state for the right sensor in the second bit
-  // ex: 10 means that left is black, right is white
-  int qtis = ((item << 1) | (item >> 1)) & 3;
-  return qtis;
-}
-
-void debug_qti_sensors() {
+// Read the left and the right QTI sensor
+void read_qti_sensors(int* left, int* right) {
   high(13);
   pause(1);
-  int left = rc_time(13, 1);
-  
+  *left = rc_time(13, 1);
+
   high(14);
   pause(1);
-  int right = rc_time(14, 1);
-
-  // black should be in the thousands (or high like that)
-  // white should be < 100 or something
-  print("Left QTI sensor: %d | Right QTI sensor: %d\n", left, right);
+  *right = rc_time(14, 1);
 }
 
 // Use the IR sensors to detect an obstacle in front.
-// Writes a value into leftValue and write a value into rightValue
+// Writes a value into left and write a value into right
 // The values should range from 0 to 8, where 0 means the
 // obstacle is very close, and 8 means that the obstacle
 // wasn't detected at all.
-void read_infrared_sensors(int* leftValue, int* rightValue) {
-  int left = 0;
-  int right = 0;
+void read_infrared_sensors(int* left, int* right) {
+  *left = *right = 0;
 
   // Accumulate the left and right receiver outputs
   // The more we iterate, the more the sensors get nearsighted,
@@ -105,69 +71,43 @@ void read_infrared_sensors(int* leftValue, int* rightValue) {
     pause(2);
     // Tally the amount of times the left sensor DID NOT detect something
     freqout(5, 1, 38000);
-    left += input(1);
+    *left += input(1);
     // Tally the amount of times the right sensor DID NOT detect something
     freqout(6, 1, 38000);
-    right += input(2);
+    *right += input(2);
   }
-
-  *leftValue = left;
-  *rightValue = right;
 }
 
 void navigate()
 {
-  int left, right; // ir sensors
-  read_infrared_sensors(&left, &right);
-  print("Left IR sensor: %d | Right IR sensor: %d\n", left, right);
+  // TODO: Stay inside the ring
+  int leftQTI, rightQTI;
+  read_qti_sensors(&leftQTI, &rightQTI);
+  print("Left QTI sensor: %d | Right QTI sensor: %d\n", leftQTI, rightQTI);
 
-  if (left < 7 && right < 7)
+  if (leftQTI < WHITE_THRESHOLD && rightQTI < WHITE_THRESHOLD)
+    move(BACKWARD); // Left and right is on top of white
+
+  // Charge towards object
+  int leftIR, rightIR;
+  read_infrared_sensors(&leftIR, &rightIR);
+  //print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
+
+  if (leftIR < 7 && rightIR < 7)
     move(FORWARD);
-  else if (left < 7 && right >= 7)
+  else if (leftIR < 7 && rightIR >= 7)
     move(LEFT);
-  else if (left >= 7 && right < 7)
+  else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
   else
     move(CENTER);
 }
 
-/*
-// This might actually be working...
-// probably not anymore
-void move_robot_inside_ring() {
-  int value = detect_surface_color();
-
-  switch (value) {
-    case 0b11: // left & right see black
-      move(TURN_LEFT);
-      break;
-    case 0b10: // left sees black, right sees white
-      move(TURN_RIGHT);
-      pause(600);
-      move(BACKWARDS);
-      pause(600);
-      break;
-    case 0b01: // left sees white, right sees black
-      move(TURN_RIGHT);
-      pause(600);
-      move(FORWARDS);
-      pause(600);
-      break;
-   case 0b00: // left & right see white
-      move(TURN_RIGHT);
-      pause(600);
-      move(BACKWARDS);
-      pause(600);
-      break;
-  }
-}
-*/
-
 int main() {
-  pause(1000);
   da_init(23, 23);
   move(CENTER);
+  pause(1000);
   while (1) {
-    navigate(); 
-  }
+    navigate();
+  }    
 }
