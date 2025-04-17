@@ -1,17 +1,24 @@
 #include "simpletools.h"
-#include "servo.h".
+#include "servo.h"
 #include "abvolts.h"
+
+// Potential techniques
+// - Move at varying speeds -- use CR servo set ramp
+// - Search for the opponent in a pattern, then when we detect them,
+//   charge as fast as possible to try to push them out
+// - Ensure that we can't leave the ring
+// - Attack in angled arcs so we're harder to detect
+// - Clean the robot as much as possible so that the opponent's IR sensors
+//   have a harder time detecting us
+// - Lower the center of gravity of the robot so that it's harder to destabilize it
+// - Detect when we're being pushed and try to fight back
+// - Try to tip the other robot so that we throw off their sensors and mess them up
+// - Detect when we're being tipped
 
 typedef enum { FORWARD, BACKWARD, LEFT, RIGHT, CENTER } MoveStates;
 
-// At what distance should we respond to the opponent? (far off or super close (what if we're too late??))
-// What happens when the opponent tips the robot forwards?
-//  - The opponent disappears
-//  - We should be doing that to our opponents
-// Scanleft and right for an opponent if we can't see one
-
 void move(MoveStates state) {
-  int a, b; // a is left and b is right
+  int a, b; // a is left and b is right. can range from -200 to 200
   
   // The right wheel needs to move clockwise,
   // the left has to move counter clockwise
@@ -25,6 +32,7 @@ void move(MoveStates state) {
   if (state == RIGHT) { a = 100; b = 0; }
 
   // Center the servos
+  // TODO: this should center it -- use a screwdriver to center it
   if (state == CENTER) a = b = 0;
 
   servo_speed(26, a);
