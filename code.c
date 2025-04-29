@@ -40,10 +40,6 @@ void move(MoveStates state) {
   servo_speed(27, b);
 }
 
-// A QTI sensor value below this is treated as white
-// TODO: higher than 460 should be treated as black
-const int WHITE_THRESHOLD = 115;
-
 // Read the left and the right QTI sensor
 void read_qti_sensors(int* left, int* right) {
   high(13);
@@ -53,6 +49,11 @@ void read_qti_sensors(int* left, int* right) {
   high(14);
   pause(1);
   *right = rc_time(14, 1);
+}
+
+// Return 1 if the QTI sensor detects white, 0 otherwise
+int isWhite(int value) {
+  return value < 115;
 }
 
 // Use the IR sensors to detect an obstacle in front.
@@ -78,29 +79,55 @@ void read_infrared_sensors(int* left, int* right) {
   }
 }
 
-void navigate()
+void attackOpponent()
 {
-  // TODO: Stay inside the ring
-  int leftQTI, rightQTI;
-  read_qti_sensors(&leftQTI, &rightQTI);
-  print("Left QTI sensor: %d | Right QTI sensor: %d\n", leftQTI, rightQTI);
-
-  if (leftQTI < WHITE_THRESHOLD && rightQTI < WHITE_THRESHOLD)
-    move(BACKWARD); // Left and right is on top of white
-
-  // Charge towards object
   int leftIR, rightIR;
   read_infrared_sensors(&leftIR, &rightIR);
-  //print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
+  print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
 
-  if (leftIR < 7 && rightIR < 7)
-    move(FORWARD);
+  if (leftIR < 7 && rightIR < 7) {
+    // TODO: how do we know when we're in a deadlock -- not moving while trying to push the opponent???
+    if (leftIR <= 1 && rightIR <= 1) {
+      move(BACKWARD);
+      pause(100);
+   } else {  
+     move(FORWARD);
+      pause(500);
+    }    
+  }    
   else if (leftIR < 7 && rightIR >= 7)
     move(LEFT);
   else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
-  else
-    move(CENTER);
+  else { // TODO: might be better to spin around the circle
+    move(LEFT);
+  }
+}  
+
+void navigate()
+{
+  int leftQTI, rightQTI;
+  read_qti_sensors(&leftQTI, &rightQTI);
+  //print("Left QTI sensor: %d | Right QTI sensor: %d\n", leftQTI, rightQTI);
+
+  // Stay inside the ring
+  if (isWhite(leftQTI) && isWhite(rightQTI))
+    move(BACKWARD);
+ 
+  if (isWhite(leftQTI) && !isWhite(rightQTI)) {
+    move(BACKWARD);
+    pause(500);
+    move(RIGHT);
+  }
+
+  if (!isWhite(leftQTI) && isWhite(rightQTI)) {
+    move(BACKWARD);
+    pause(500);
+    move(LEFT); 
+  }
+
+  if (!isWhite(leftQTI) && !isWhite(rightQTI))
+    attackOpponent();
 }
 
 int main() {
