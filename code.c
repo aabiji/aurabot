@@ -88,21 +88,35 @@ void attackOpponent()
 {
   int leftIR, rightIR;
   read_infrared_sensors(&leftIR, &rightIR);
-  print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
 
+  print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
   printf("Left wheel: %d | Right wheel: %d\n", getServoSpeed(26), getServoSpeed(27));
+
+  // how do we know if we're being pushed back when we're moving towards the opponent????
+  // TODO: we need to have a sense of direction
+
+  // TODO: just using the left for now
+  if (leftIR < 7) {
+     move(FORWARD);
+  }
+  else if (leftIR >= 7)
+    move(RIGHT);
+  else { // TODO: might be better to spin around the circle
+    move(CENTER);
+  }
+
+  /* 
   if (leftIR < 7 && rightIR < 7) {
-     // to see if we're in a deadlock we could mesaure elapsed time
-     // could we use the servo sensors to detect whether the robot is moving forwards or backwards???
      move(FORWARD);
   }
   else if (leftIR < 7 && rightIR >= 7)
     move(LEFT);
   else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
-  else { // TODO: might be better to spin around the circle
-    move(LEFT);
+  else { // TODO: might be better to spin around the circle in an arc
+    move(CENTER);
   }
+  */
 }  
 
 void navigate()
