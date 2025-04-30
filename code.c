@@ -1,5 +1,5 @@
 #include "simpletools.h"
-#include "servo.h"
+#include "servo.h" // https://github.com/parallaxinc/BlocklyPropClient/blob/1d2f6fec688cbe1eb243416eb270acb3453b4823/propeller-c-lib/Motor/libservo/servo.h
 #include "abvolts.h"
 
 // Potential techniques
@@ -52,9 +52,7 @@ void read_qti_sensors(int* left, int* right) {
 }
 
 // Return 1 if the QTI sensor detects white, 0 otherwise
-int isWhite(int value) {
-  return value < 115;
-}
+int isWhite(int value) { return value < 115; }
 
 // Use the IR sensors to detect an obstacle in front.
 // Writes a value into left and write a value into right
@@ -79,22 +77,25 @@ void read_infrared_sensors(int* left, int* right) {
   }
 }
 
+// get which direction the servo is spinning in
+int getServoSpeed(int pin)
+{
+  int state = servo_get(pin);
+  return state - 1500;
+}  
+
 void attackOpponent()
 {
   int leftIR, rightIR;
   read_infrared_sensors(&leftIR, &rightIR);
   print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
 
+  printf("Left wheel: %d | Right wheel: %d\n", getServoSpeed(26), getServoSpeed(27));
   if (leftIR < 7 && rightIR < 7) {
-    // TODO: how do we know when we're in a deadlock -- not moving while trying to push the opponent???
-    if (leftIR <= 1 && rightIR <= 1) {
-      move(BACKWARD);
-      pause(100);
-   } else {  
+     // to see if we're in a deadlock we could mesaure elapsed time
+     // could we use the servo sensors to detect whether the robot is moving forwards or backwards???
      move(FORWARD);
-      pause(500);
-    }    
-  }    
+  }
   else if (leftIR < 7 && rightIR >= 7)
     move(LEFT);
   else if (leftIR >= 7 && rightIR < 7)
