@@ -26,16 +26,14 @@ void move(MoveStates state) {
   servo_speed(27, b);
 }
 
-// TODO: test this -- for example with FORWARD, 50, 100, we should gradually speed up as we go forwards
-// could we use servo_setramp instead???
-void speed_up(MoveStates state, int min_speed, int max_speed, int step) {
-  for (int i = min_speed; i <= max_speed; i += step) {
-    if (state == FORWARD) {
-      servo_speed(26,  i);
-      servo_speed(27, -i);
-      pause(50);
-    }
-  }
+int speed = 50;
+int max_speed = 100;
+
+void gradually_speed_up(MoveStates state, int step) {
+  servo_speed(26, speed);
+  servo_speed(27, -speed);
+  if (speed < max_speed)
+    speed += step;
 }
 
 // Read the left and the right QTI sensor
@@ -75,6 +73,15 @@ void read_infrared_sensors(int* left, int* right) {
   }
 }
 
+// Randomly return true or false
+unsigned short lfsr = 0xACE1u;
+unsigned bit;
+unsigned random(){
+  bit  = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5) ) & 1;
+  int value = lfsr =  (lfsr >> 1) | (bit << 15);
+  return value < 10000;
+}
+
 // I don't think there's a way with the hardware we're allowed to detect
 // whether we're being pushed or not. Which means that we're forced to be
 // aggressive, rather than offensive.
@@ -95,7 +102,6 @@ void attack_opponent()
   else { // TODO: might be better to spin around the circle
     move(CENTER);
   }
-
   /*
   if (leftIR < 7 && rightIR < 7) {
      move(FORWARD);
@@ -105,8 +111,14 @@ void attack_opponent()
   else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
   else {
-    // TODO: Spin around in a circle until it finds the robot. When it finds it, it follows it
-    move(LEFT);
+    // Move around looking for the opponent
+    move(FORWARD);
+    pause(100);
+    move(RIGHT);
+    if (random())
+      move(LEFT);
+    else
+      move(RIGHT);
   }
   */
 }
@@ -136,7 +148,7 @@ void navigate()
   }
 
   if (!white(leftQTI) && !white(rightQTI))
-    attackOpponent();
+    attack_opponent();
 }
 
 int main() {
