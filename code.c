@@ -1,30 +1,16 @@
 #include "simpletools.h"
-#include "servo.h" // https://github.com/parallaxinc/BlocklyPropClient/blob/1d2f6fec688cbe1eb243416eb270acb3453b4823/propeller-c-lib/Motor/libservo/servo.h
+#include "servo.h"
 #include "abvolts.h"
-
-// Potential techniques
-// - Move at varying speeds -- use CR servo set ramp
-// - Search for the opponent in a pattern, then when we detect them,
-//   charge as fast as possible to try to push them out
-// - Ensure that we can't leave the ring
-// - Attack in angled arcs so we're harder to detect
-// - Clean the robot as much as possible so that the opponent's IR sensors
-//   have a harder time detecting us
-// - Lower the center of gravity of the robot so that it's harder to destabilize it
-// - Detect when we're being pushed and try to fight back
-// - Try to tip the other robot so that we throw off their sensors and mess them up
-// - Detect when we're being tipped
-// - If it's drifting, change batteries
 
 typedef enum { FORWARD, BACKWARD, LEFT, RIGHT, CENTER } MoveStates;
 
 void move(MoveStates state) {
   int a, b; // a is left and b is right. can range from -200 to 200
-  
+
   // The right wheel needs to move clockwise,
   // the left has to move counter clockwise
   if (state == FORWARD) { a = 100; b = -100; }
-  
+
   // Opposite of moving forwards
   if (state == BACKWARD) { a = -100; b = 100; }
 
@@ -40,6 +26,18 @@ void move(MoveStates state) {
   servo_speed(27, b);
 }
 
+// TODO: test this -- for example with FORWARD, 50, 100, we should gradually speed up as we go forwards
+// could we use servo_setramp instead???
+void speed_up(MoveStates state, int min_speed, int max_speed, int step) {
+  for (int i = min_speed; i <= max_speed; i += step) {
+    if (state == FORWARD) {
+      servo_speed(26,  i);
+      servo_speed(27, -i);
+      pause(50);
+    }
+  }
+}
+
 // Read the left and the right QTI sensor
 void read_qti_sensors(int* left, int* right) {
   high(13);
@@ -52,7 +50,7 @@ void read_qti_sensors(int* left, int* right) {
 }
 
 // Return 1 if the QTI sensor detects white, 0 otherwise
-int isWhite(int value) { return value < 115; }
+int white(int value) { return value < 115; }
 
 // Use the IR sensors to detect an obstacle in front.
 // Writes a value into left and write a value into right
@@ -77,23 +75,16 @@ void read_infrared_sensors(int* left, int* right) {
   }
 }
 
-// get which direction the servo is spinning in
-int getServoSpeed(int pin)
-{
-  int state = servo_get(pin);
-  return state - 1500;
-}  
-
-void attackOpponent()
+// I don't think there's a way with the hardware we're allowed to detect
+// whether we're being pushed or not. Which means that we're forced to be
+// aggressive, rather than offensive.
+// Are there more sensors???? -- what if we put sensors on the sides too?
+void attack_opponent()
 {
   int leftIR, rightIR;
   read_infrared_sensors(&leftIR, &rightIR);
 
   print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
-  printf("Left wheel: %d | Right wheel: %d\n", getServoSpeed(26), getServoSpeed(27));
-
-  // how do we know if we're being pushed back when we're moving towards the opponent????
-  // TODO: we need to have a sense of direction
 
   // TODO: just using the left for now
   if (leftIR < 7) {
@@ -105,7 +96,7 @@ void attackOpponent()
     move(CENTER);
   }
 
-  /* 
+  /*
   if (leftIR < 7 && rightIR < 7) {
      move(FORWARD);
   }
@@ -113,43 +104,46 @@ void attackOpponent()
     move(LEFT);
   else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
-  else { // TODO: might be better to spin around the circle in an arc
-    move(CENTER);
+  else {
+    // TODO: Spin around in a circle until it finds the robot. When it finds it, it follows it
+    move(LEFT);
   }
   */
-}  
+}
 
 void navigate()
 {
   int leftQTI, rightQTI;
   read_qti_sensors(&leftQTI, &rightQTI);
-  //print("Left QTI sensor: %d | Right QTI sensor: %d\n", leftQTI, rightQTI);
+  print("Left QTI sensor: %d | Right QTI sensor: %d\n", leftQTI, rightQTI);
+
+  // TODO: what if we decrease the pause times???
 
   // Stay inside the ring
-  if (isWhite(leftQTI) && isWhite(rightQTI))
+  if (white(leftQTI) && white(rightQTI))
     move(BACKWARD);
- 
-  if (isWhite(leftQTI) && !isWhite(rightQTI)) {
+
+  if (white(leftQTI) && !white(rightQTI)) {
     move(BACKWARD);
     pause(500);
     move(RIGHT);
   }
 
-  if (!isWhite(leftQTI) && isWhite(rightQTI)) {
+  if (!white(leftQTI) && white(rightQTI)) {
     move(BACKWARD);
     pause(500);
-    move(LEFT); 
+    move(LEFT);
   }
 
-  if (!isWhite(leftQTI) && !isWhite(rightQTI))
+  if (!white(leftQTI) && !white(rightQTI))
     attackOpponent();
 }
 
 int main() {
   da_init(23, 23);
   move(CENTER);
-  pause(1000);
+  pause(5000);
   while (1) {
     navigate();
-  }    
+  }
 }
