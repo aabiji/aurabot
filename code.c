@@ -50,26 +50,24 @@ void read_qti_sensors(int* left, int* right) {
 // Return 1 if the QTI sensor detects white, 0 otherwise
 int white(int value) { return value < 115; }
 
-// Use the IR sensors to detect an obstacle in front.
-// Writes a value into left and write a value into right
+// Write the IR sensor values for each sensor (p4, p5, p6, p7)
+// into the sensors array
 // The values should range from 0 to 8, where 0 means the
 // obstacle is very close, and 8 means that the obstacle
 // wasn't detected at all.
-void read_infrared_sensors(int* left, int* right) {
-  *left = *right = 0;
-
+void read_infrared_sensors(int* sensors) {
   // Accumulate the left and right receiver outputs
   // The more we iterate, the more the sensors get nearsighted,
   // so it's seeing closer and closer.
   for (int i = 0; i <= 140; i += 20) {
     da_out(0, i);
     pause(2);
-    // Tally the amount of times the left sensor DID NOT detect something
-    freqout(5, 1, 38000);
-    *left += input(1);
-    // Tally the amount of times the right sensor DID NOT detect something
-    freqout(6, 1, 38000);
-    *right += input(2);
+    for (int j = 0; j < 4; j++) {
+      // Write to the ir led, read from the ir receiver
+      // For example: write to p5, read from p1
+      freqout(4 + j, 1, 38000);
+      sensors[j] += input(j);
+    }
   }
 }
 
@@ -88,12 +86,14 @@ unsigned random(){
 // Are there more sensors???? -- what if we put sensors on the sides too?
 void attack_opponent()
 {
-  int leftIR, rightIR;
-  read_infrared_sensors(&leftIR, &rightIR);
+  int sensors[4] = {0, 0, 0, 0};
+  read_infrared_sensors(sensors);
 
-  print("Left IR sensor: %d | Right IR sensor: %d\n", leftIR, rightIR);
+  for (int i = 0; i < 4; i++) {
+    print("Sensor: #%d: %d\n ", i, sensors[i]);
+  }
 
-  // TODO: just using the left for now
+  int leftIR = sensors[1], rightIR = sensors[3];
   if (leftIR < 7) {
      move(FORWARD);
   }
@@ -154,7 +154,7 @@ void navigate()
 int main() {
   da_init(23, 23);
   move(CENTER);
-  pause(5000);
+  //pause(5000);
   while (1) {
     navigate();
   }
