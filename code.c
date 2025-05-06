@@ -26,16 +26,6 @@ void move(MoveStates state) {
   servo_speed(27, b);
 }
 
-int speed = 50;
-int max_speed = 100;
-
-void gradually_speed_up(MoveStates state, int step) {
-  servo_speed(26, speed);
-  servo_speed(27, -speed);
-  if (speed < max_speed)
-    speed += step;
-}
-
 // Read the left and the right QTI sensor
 void read_qti_sensors(int* left, int* right) {
   high(13);
@@ -50,25 +40,21 @@ void read_qti_sensors(int* left, int* right) {
 // Return 1 if the QTI sensor detects white, 0 otherwise
 int white(int value) { return value < 115; }
 
-// Write the IR sensor values for each sensor (p4, p5, p6, p7)
-// into the sensors array
-// The values should range from 0 to 8, where 0 means the
-// obstacle is very close, and 8 means that the obstacle
-// wasn't detected at all.
-void read_infrared_sensors(int* sensors) {
+// Write to the sensor at p5, read from p0
+// Write to the sensor at p7, read from p2
+void read_infrared_sensors(int* left, int* right) {
   // Accumulate the left and right receiver outputs
   // The more we iterate, the more the sensors get nearsighted,
   // so it's seeing closer and closer.
   for (int i = 0; i <= 140; i += 20) {
     da_out(0, i);
     pause(2);
-    for (int j = 0; j < 4; j++) {
-      // Write to the ir led, read from the ir receiver
-      // For example: write to p5, read from p1
-      freqout(4 + j, 1, 38000);
-      sensors[j] += input(j);
-    }
-  }
+   
+    freqout(5, 1, 38000);
+    *left += input(1);
+    freqout(7, 1, 38000);
+    *right += input(2);
+  }  
 }
 
 // Randomly return true or false
@@ -80,29 +66,13 @@ unsigned random(){
   return value < 10000;
 }
 
-// I don't think there's a way with the hardware we're allowed to detect
-// whether we're being pushed or not. Which means that we're forced to be
-// aggressive, rather than offensive.
-// Are there more sensors???? -- what if we put sensors on the sides too?
 void attack_opponent()
 {
-  int sensors[4] = {0, 0, 0, 0};
-  read_infrared_sensors(sensors);
+  int leftIR = 0, rightIR = 0;
+  read_infrared_sensors(&leftIR, &rightIR);
 
-  for (int i = 0; i < 4; i++) {
-    print("Sensor: #%d: %d\n ", i, sensors[i]);
-  }
+  print("Left: %d | Right %d\n", leftIR, rightIR);
 
-  int leftIR = sensors[1], rightIR = sensors[3];
-  if (leftIR < 7) {
-     move(FORWARD);
-  }
-  else if (leftIR >= 7)
-    move(RIGHT);
-  else { // TODO: might be better to spin around the circle
-    move(CENTER);
-  }
-  /*
   if (leftIR < 7 && rightIR < 7) {
      move(FORWARD);
   }
@@ -111,25 +81,22 @@ void attack_opponent()
   else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
   else {
-    // Move around looking for the opponent
-    move(FORWARD);
-    pause(100);
-    move(RIGHT);
+    // Randomly move around to try to find the opponent
     if (random())
       move(LEFT);
     else
       move(RIGHT);
+    pause(250);
+
+    move(FORWARD);
+    pause(250);
   }
-  */
 }
 
 void navigate()
 {
   int leftQTI, rightQTI;
   read_qti_sensors(&leftQTI, &rightQTI);
-  print("Left QTI sensor: %d | Right QTI sensor: %d\n", leftQTI, rightQTI);
-
-  // TODO: what if we decrease the pause times???
 
   // Stay inside the ring
   if (white(leftQTI) && white(rightQTI))
@@ -137,13 +104,13 @@ void navigate()
 
   if (white(leftQTI) && !white(rightQTI)) {
     move(BACKWARD);
-    pause(500);
+    pause(600);
     move(RIGHT);
   }
 
   if (!white(leftQTI) && white(rightQTI)) {
     move(BACKWARD);
-    pause(500);
+    pause(600);
     move(LEFT);
   }
 
