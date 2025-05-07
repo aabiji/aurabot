@@ -15,8 +15,8 @@ void move(MoveStates state) {
   if (state == BACKWARD) { a = -100; b = 100; }
 
   // Turning
-  if (state == LEFT)  { a = 0; b = -100; }
-  if (state == RIGHT) { a = 100; b = 0; }
+  if (state == LEFT)  { a = -100; b = -100; }
+  if (state == RIGHT) { a = 100; b = 100; }
 
   // Center the servos
   // NOTE: the servo should be manually calibrated before hand
@@ -57,14 +57,16 @@ void read_infrared_sensors(int* left, int* right) {
   }  
 }
 
-// Randomly return true or false
-unsigned short lfsr = 0xACE1u;
-unsigned bit;
-unsigned random(){
-  bit  = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5) ) & 1;
-  int value = lfsr =  (lfsr >> 1) | (bit << 15);
-  return value < 10000;
-}
+seed = 12948943827432;
+int random(int start, int end) {
+  int a = 16807;
+  int m = 2147483647;
+  seed = (a * seed) % m;
+  float random = fabs((float)seed / (float)m);
+  float length = (end - start) + 1;
+  float value = fmod(random, length) * 100;
+  return (int)value % (int)length;
+}  
 
 void attack_opponent()
 {
@@ -81,12 +83,15 @@ void attack_opponent()
   else if (leftIR >= 7 && rightIR < 7)
     move(RIGHT);
   else {
-    // Randomly move around to try to find the opponent
-    if (random())
-      move(LEFT);
-    else
-      move(RIGHT);
+    move(FORWARD);
     pause(250);
+
+    // setting direction??
+    int state = random(0, 2);
+    if (state == 0)
+      move(LEFT);
+    else if (state == 1)
+      move(RIGHT);
 
     move(FORWARD);
     pause(250);
