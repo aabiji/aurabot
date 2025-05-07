@@ -57,15 +57,29 @@ void read_infrared_sensors(int* left, int* right) {
   }  
 }
 
-seed = 12948943827432;
-int random(int start, int end) {
-  int a = 16807;
-  int m = 2147483647;
-  seed = (a * seed) % m;
-  float random = fabs((float)seed / (float)m);
-  float length = (end - start) + 1;
-  float value = fmod(random, length) * 100;
-  return (int)value % (int)length;
+int state  = 0;
+int counter = 0;
+
+void finderPattern() {
+  // forward, left, right, forward, right, left
+  int states[]    = { 0, 1, 0, 2, 0, 2, 0, 1 };
+  int durations[] = { 8, 6, 8, 6, 8, 6, 8, 6 };
+
+  counter++;
+  if (counter > durations[state]) {
+    counter = 0;
+    state++;
+    if (state >= sizeof(states) / sizeof(int)) {
+      state = 0; // reset back to 0
+    }      
+  }      
+
+  if (states[state] == 0)
+    move(FORWARD);
+  if (states[state] == 1)
+    move(LEFT);
+  else if (states[state] == 2)
+    move(RIGHT); 
 }  
 
 void attack_opponent()
@@ -73,29 +87,14 @@ void attack_opponent()
   int leftIR = 0, rightIR = 0;
   read_infrared_sensors(&leftIR, &rightIR);
 
-  print("Left: %d | Right %d\n", leftIR, rightIR);
-
-  if (leftIR < 7 && rightIR < 7) {
+  if (leftIR < 7 && rightIR < 7) // left & right detect
      move(FORWARD);
-  }
-  else if (leftIR < 7 && rightIR >= 7)
+  else if (leftIR < 7 && rightIR >= 7) // left detects
     move(LEFT);
-  else if (leftIR >= 7 && rightIR < 7)
+  else if (leftIR >= 7 && rightIR < 7) // right detects
     move(RIGHT);
-  else {
-    move(FORWARD);
-    pause(250);
-
-    // setting direction??
-    int state = random(0, 2);
-    if (state == 0)
-      move(LEFT);
-    else if (state == 1)
-      move(RIGHT);
-
-    move(FORWARD);
-    pause(250);
-  }
+  else
+    finderPattern();
 }
 
 void navigate()
@@ -103,9 +102,15 @@ void navigate()
   int leftQTI, rightQTI;
   read_qti_sensors(&leftQTI, &rightQTI);
 
+  if (!white(leftQTI) && !white(rightQTI)) {
+    attack_opponent();
+    return;
+  }
+
   // Stay inside the ring
-  if (white(leftQTI) && white(rightQTI))
+  if (white(leftQTI) && white(rightQTI)) {
     move(BACKWARD);
+  }
 
   if (white(leftQTI) && !white(rightQTI)) {
     move(BACKWARD);
@@ -118,15 +123,12 @@ void navigate()
     pause(600);
     move(LEFT);
   }
-
-  if (!white(leftQTI) && !white(rightQTI))
-    attack_opponent();
 }
 
 int main() {
   da_init(23, 23);
   move(CENTER);
-  //pause(5000);
+  pause(5000);
   while (1) {
     navigate();
   }
